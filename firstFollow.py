@@ -1,183 +1,86 @@
-def split_production(prod):
-    """تجزیه رشته تولید به نمادها - نسخه اصلاح‌شده"""
-    symbols = []
-    i = 0
-    n = len(prod)
-    
-    while i < n:
-        # نادیده گرفتن فاصله
-        if prod[i].isspace():
-            i += 1
-            continue
-        
-        # شناسه‌ها و اعداد
-        if prod[i].isalpha():
-            start = i
-            while i < n and (prod[i].isalnum() or prod[i] == '_' or prod[i] == "'"):
-                i += 1
-            symbols.append(prod[start:i])
-        
-        # اعداد
-        elif prod[i].isdigit():
-            start = i
-            while i < n and prod[i].isdigit():
-                i += 1
-            symbols.append(prod[start:i])
-        
-        # سایر کاراکترها
-        else:
-            symbols.append(prod[i])
-            i += 1
-    
-    return symbols
-
+EPS = 'ε'
+END = '$'
 
 def compute_first(grammar):
-    """محاسبه FIRST برای گرامر"""
     first = {nt: set() for nt in grammar}
-    terminals = set()
-    
-    # شناسایی پایانه‌ها (یک بار اولیه)
-    for prods in grammar.values():
-        for prod in prods:
-            if prod == 'e':
-                continue
-            for sym in split_production(prod):
-                if sym not in grammar and sym != 'e':
-                    terminals.add(sym)
-    
-    # الگوریتم اصلی FIRST
+
+    def first_of(symbol):
+        if symbol not in grammar:  
+            return {symbol}
+        return first[symbol]
+
     changed = True
     while changed:
         changed = False
-        for nt, prods in grammar.items():
-            for prod in prods:
-                if prod == 'e':
-                    if 'e' not in first[nt]:
-                        first[nt].add('e')
-                        changed = True
-                    continue
-                
-                symbols = split_production(prod)
-                all_epsilon = True
-                
+        for nt in grammar:
+            for production in grammar[nt]:
+                symbols = production.split()
+                can_epsilon = True
                 for sym in symbols:
-                    if sym in terminals:
-                        if sym not in first[nt]:
-                            first[nt].add(sym)
-                            changed = True
-                        all_epsilon = False
+                    f = first_of(sym)
+                    before = len(first[nt])
+                    first[nt].update(f - {EPS})
+                    if EPS not in f:
+                        can_epsilon = False
                         break
-                    else:  # غیرپایانه
-                        before = len(first[nt])
-                        first[nt] |= first.get(sym, set()) - {'e'}
-                        if len(first[nt]) > before:
-                            changed = True
-                        
-                        if 'e' not in first.get(sym, set()):
-                            all_epsilon = False
-                            break
-                
-                if all_epsilon and 'e' not in first[nt]:
-                    first[nt].add('e')
+                if can_epsilon:
+                    first[nt].add(EPS)
+                if len(first[nt]) != before:
                     changed = True
-    
-    return first, terminals
+    return first
 
 
-def compute_follow_simple(grammar, first, terminals):
-    """محاسبه FOLLOW - نسخه ساده و صحیح"""
+def compute_follow(grammar, first, start_symbol):
     follow = {nt: set() for nt in grammar}
-    start_symbol = list(grammar.keys())[0]
-    follow[start_symbol].add('$')
-    
+    follow[start_symbol].add(END)
+
+    def first_of_string(symbols):
+        result = set()
+        for s in symbols:
+            f = first[s] if s in first else {s}
+            result |= (f - {EPS})
+            if EPS not in f:
+                return result
+        result.add(EPS)
+        return result
+
     changed = True
     while changed:
         changed = False
-        
-        for A, prods in grammar.items():
-            for prod in prods:
-                if prod == 'e':
-                    continue
-                
-                symbols = split_production(prod)
-                
-                for i, B in enumerate(symbols):
-                    if B not in grammar:
-                        continue  # فقط غیرپایانه‌ها
-                    
-                    # قاعده ۱: FIRST(نمادهای بعدی) را اضافه کن
-                    if i + 1 < len(symbols):
-                        j = i + 1
-                        while j < len(symbols):
-                            X = symbols[j]
-                            
-                            if X in grammar:  # غیرپایانه
-                                # FIRST(X) بدون ε اضافه شود
-                                new_items = first.get(X, set()) - {'e'}
-                                if new_items:
-                                    old_size = len(follow[B])
-                                    follow[B] |= new_items
-                                    if len(follow[B]) > old_size:
-                                        changed = True
-                                
-                                # اگر X می‌تواند ε تولید کند، به سراغ بعدی برو
-                                if 'e' in first.get(X, set()):
-                                    j += 1
-                                else:
-                                    break  # X نمی‌تواند ε تولید کند
-                            else:  # پایانه
-                                # خود پایانه را اضافه کن
-                                if X not in follow[B]:
-                                    follow[B].add(X)
-                                    changed = True
-                                break  # پایانه ε نیست
-                    
-                    # قاعده ۲: اگر تمام نمادهای بعدی می‌توانند ε تولید کنند
-                    # یا اگر B آخرین نماد است
-                    apply_follow_A = False
-                    
-                    if i == len(symbols) - 1:  # B آخرین نماد است
-                        apply_follow_A = True
-                    else:
-                        # بررسی کن آیا همه نمادهای بعدی می‌توانند ε تولید کنند
-                        all_can_be_epsilon = True
-                        for j in range(i + 1, len(symbols)):
-                            X = symbols[j]
-                            if X in terminals or 'e' not in first.get(X, set()):
-                                all_can_be_epsilon = False
-                                break
-                        
-                        if all_can_be_epsilon:
-                            apply_follow_A = True
-                    
-                    if apply_follow_A:
-                        old_size = len(follow[B])
-                        follow[B] |= follow[A]
-                        if len(follow[B]) > old_size:
+        for nt in grammar:
+            for production in grammar[nt]:
+                symbols = production.split()
+                for i, sym in enumerate(symbols):
+                    if sym in grammar:
+                        after = symbols[i+1:]
+                        f = first_of_string(after)
+                        before = len(follow[sym])
+                        follow[sym].update(f - {EPS})
+                        if EPS in f or not after:
+                            follow[sym].update(follow[nt])
+                        if len(follow[sym]) != before:
                             changed = True
-    
     return follow
 
 
-# ================ تست ================
-
-
 grammar = {
-    'E': ['T E\''],
-    'E\'': ['+ T E\'', 'e'],
-    'T': ['F T\''],
-    'T\'': ['* F T\'', 'e'],
-    'F': ['( E )', 'id']
+    'S': ['A X B'],
+    'A': ['a A', 'ε'],
+    'X':['Y Z', 'c'],
+    'Y':['d Y', 'ε'],
+    'Z':['e', 'ε'],
+    'B': ['b B', 'f']
 }
 
-first, terminals = compute_first(grammar)
-follow1 = compute_follow_simple(grammar, first, terminals)
 
-print("FIRST Sets:")
-for nt in sorted(grammar.keys()):
-    print(f"  FIRST({nt}) = {sorted(first.get(nt, []))}")
+start_symbol = next(iter(grammar))
+first = compute_first(grammar)
+follow = compute_follow(grammar, first, start_symbol)
 
-print("\nFOLLOW Sets:")
-for nt in sorted(grammar.keys()):
-    print(f"  FOLLOW({nt}) = {sorted(follow1.get(nt, []))}")
+print("FIRST sets:")
+for nt in first:
+    print(f"{nt}: {first[nt]}")
+
+print("\nFOLLOW sets:")
+for nt in follow:
+    print(f"{nt}: {follow[nt]}")
