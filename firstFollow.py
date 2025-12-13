@@ -61,12 +61,11 @@ def compute_follow(grammar, first, start_symbol):
 
 
 grammar = {
-    'S': ['A X B'],
-    'A': ['a A', 'ε'],
-    'X':['Y Z', 'c'],
-    'Y':['d Y', 'ε'],
-    'Z':['e', 'ε'],
-    'B': ['b B', 'f']
+    'E': ['T E\''], 
+    'E\'': ['+ T E\'', 'ε'], 
+    'T': ['F T\''], 
+    'T\'': ['* F T\'', 'ε'], 
+    'F': ['( E )', 'id']
 }
 
 
