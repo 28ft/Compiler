@@ -1,6 +1,3 @@
-EPS = 'ε'
-END = '$'
-
 def compute_first(grammar):
     first = {nt: set() for nt in grammar}
 
@@ -19,12 +16,12 @@ def compute_first(grammar):
                 for sym in symbols:
                     f = first_of(sym)
                     before = len(first[nt])
-                    first[nt].update(f - {EPS})
-                    if EPS not in f:
+                    first[nt].update(f - {'ε'})
+                    if 'ε' not in f:
                         can_epsilon = False
                         break
                 if can_epsilon:
-                    first[nt].add(EPS)
+                    first[nt].add('ε')
                 if len(first[nt]) != before:
                     changed = True
     return first
@@ -32,16 +29,16 @@ def compute_first(grammar):
 
 def compute_follow(grammar, first, start_symbol):
     follow = {nt: set() for nt in grammar}
-    follow[start_symbol].add(END)
+    follow[start_symbol].add('$')
 
     def first_of_string(symbols):
         result = set()
         for s in symbols:
             f = first[s] if s in first else {s}
-            result |= (f - {EPS})
-            if EPS not in f:
+            result |= (f - {'ε'})
+            if 'ε' not in f:
                 return result
-        result.add(EPS)
+        result.add('ε')
         return result
 
     changed = True
@@ -55,8 +52,8 @@ def compute_follow(grammar, first, start_symbol):
                         after = symbols[i+1:]
                         f = first_of_string(after)
                         before = len(follow[sym])
-                        follow[sym].update(f - {EPS})
-                        if EPS in f or not after:
+                        follow[sym].update(f - {'ε'})
+                        if 'ε' in f or not after:
                             follow[sym].update(follow[nt])
                         if len(follow[sym]) != before:
                             changed = True
@@ -79,8 +76,8 @@ follow = compute_follow(grammar, first, start_symbol)
 
 print("FIRST sets:")
 for nt in first:
-    print(f"{nt}: {first[nt]}")
+    print(f"first({nt}): {first[nt]}")
 
 print("\nFOLLOW sets:")
 for nt in follow:
-    print(f"{nt}: {follow[nt]}")
+    print(f"follow({nt}): {follow[nt]}")
