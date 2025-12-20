@@ -17,10 +17,10 @@ class Token:
 class SymbolTable:
     def __init__(self):
         self.rows = []
-        self.addKeywordsToSymbolTable()
+        # self.addKeywordsToSymbolTable()
     
     def addKeywordsToSymbolTable(self):
-        keywords = ["if", "while", "for"]
+        keywords = ["if", "while", "for", "return", "int", "float", "bool"]
         for keyword in keywords:
             self.rows.append({
                 "lexeme": keyword,
@@ -53,6 +53,10 @@ class SymbolTable:
             if row["lexeme"] == lexeme:
                 return row['type']
         return None
+    
+    def isKeyword(self, lexeme):
+        keywords = ["if", "else", "while", "return", "int", "float", "bool", "for"]
+        return lexeme in keywords
 
 class InputFileReader:
     def __init__(self, user_code):
@@ -99,6 +103,62 @@ class LexicalAnalyzer:
                 self.inputFile.retract(1)
                 break
             
+    def opParenthesToken(self):
+        ch = self.inputFile.getNextChar()
+        if ch == "(":
+            return Token("opParenthes", ch)
+        self.inputFile.retract(1)
+        return None
+    
+    def clpParenthesToken(self):
+        ch = self.inputFile.getNextChar()
+        if ch == ")":
+            return Token("clParenthes", ch)
+        self.inputFile.retract(1)
+        return None
+    
+    def opBracketToken(self):
+        ch = self.inputFile.getNextChar()
+        if ch == "[":
+            return Token("opBracket", ch)
+        self.inputFile.retract(1)
+        return None
+    
+    def clBracketToken(self):
+        ch = self.inputFile.getNextChar()
+        if ch == "]":
+            return Token("clBracket", ch)
+        self.inputFile.retract(1)
+        return None
+    
+    def opCurlyBracketToken(self):
+        ch = self.inputFile.getNextChar()
+        if ch == "{":
+            return Token("opCurlyBracket", ch)
+        self.inputFile.retract(1)
+        return None
+    
+    def clCurlyBracketToken(self):
+        ch = self.inputFile.getNextChar()
+        if ch == "}":
+            return Token("clCurlyBracket", ch)
+        self.inputFile.retract(1)
+        return None
+    
+    def semicolonToken(self):
+        ch = self.inputFile.getNextChar()
+        if ch == ';':
+            return Token("semicolon", ";")
+        self.inputFile.retract(1)
+        return None
+    
+    def commaToken(self):
+        ch = self.inputFile.getNextChar()
+        if ch == ',':
+            return Token("comma", ",")
+        self.inputFile.retract(1)
+        return None
+
     def colonToken(self):
         ch = self.inputFile.getNextChar()
         if ch == ':':
@@ -127,7 +187,7 @@ class LexicalAnalyzer:
         
     def arithOpToken(self):
         state = 0
-        token = Token("op")
+        token = Token("arithOp")
         
         while True:
             if state == 0:
@@ -158,7 +218,7 @@ class LexicalAnalyzer:
     
     def relOpToken(self):
         state = 0
-        token = Token("relop")
+        token = Token("relOp")
         
         while True:
             if state == 0:
@@ -236,7 +296,7 @@ class LexicalAnalyzer:
     
     def assignOpToken(self):
         state = 0
-        token = Token("op")
+        token = Token("assignOp")
         
         while True:
             if state == 0:
@@ -378,13 +438,18 @@ class LexicalAnalyzer:
                     state = 2
             
             elif state == 2:
-                token_name = self.symbolTable.getTokenName(lexeme)
-                if token_name:
-                    if token_name == "keyword":
-                        token = Token("keyword", lexeme)
-                    else:
-                        token = Token("id", lexeme)
+                if self.symbolTable.isKeyword(lexeme):
+                    token = Token("keyword", lexeme)
+                    self.symbolTable.addKeyword(lexeme)
                     return token
+
+                # token_name = self.symbolTable.getTokenName(lexeme)
+                # if token_name:
+                #     if token_name == "keyword":
+                #         token = Token("keyword", lexeme)
+                #     else:
+                #         token = Token("id", lexeme)
+                #     return token
                 else:
                     token = Token("id", lexeme)
                     self.symbolTable.installID(lexeme)
@@ -397,6 +462,30 @@ class LexicalAnalyzer:
             return None
 
         token = self.commentToken()
+        if token: return token
+
+        token = self.opParenthesToken()
+        if token: return token
+
+        token = self.clpParenthesToken()
+        if token: return token
+
+        token = self.opBracketToken()
+        if token: return token
+
+        token = self.clBracketToken()
+        if token: return token
+
+        token = self.opCurlyBracketToken()
+        if token: return token
+
+        token = self.clCurlyBracketToken()
+        if token: return token
+
+        token = self.semicolonToken()
+        if token: return token
+
+        token = self.commaToken()
         if token: return token
 
         token = self.colonToken()
